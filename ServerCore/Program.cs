@@ -93,20 +93,98 @@ namespace ServerCore
             }
         }
 
-
+        // 캐시 이론 및 테스트
         class Cash
         {
             // Cash가 있는 이유
-            // 
-            void Main()
-            {
+            // 우선 CPU와 메모리 사이에는 어느 정도 물리적으로 거리가 있음
+            // 때문에 변수 등의 값이 바뀐다고 일일이 메모리에 가서 데이터를 기입하는 건 비효율적
+            // 이 문제를 해결하기 위한 방안으로 코어에는 연산을 하는 ALU와 기억을 하는 캐시 장치가 있는데
+            // 캐시 장치에 데이터를 꾹꾹 모아두다가 어느 정도 시간이 지난 후에 메모리에 가서 저장함
+            // 만약 메모리에 전달하기 전에 값이 바뀐다면 그냥 바뀐 값을 전달하면 된다.
+            // 하지만 바로바로 메모리에 전달했다면 바꿘 데이터를 또 메모리에 가서 저장해야된다. 즉 한 번 갈걸 두 번 간다. 개손해다.
+            // 이렇게 관련 데이터들을 캐시 장치에 저장해둘때는 2가지의 철학이 있다.
+            // 1. 방금 접근한 메모리는 또 접근할 확률이 높으니 저장해둔다
+            // 2. 방금 접근한 메모리와 근접한 주솟값에 있는 애들은 접근할 확률이 높으니 저장해 둔다( 예를 들어 배열의 주솟값은 메모리에 순서대로 쭈르륵 저장된다. )
 
+            public void Main()
+            {
+                int[,] arr = new int[10000, 10000];
+
+                long start = 0;
+                long end = 0;
+                // [0][1][2][3][4] [5][6][7]....[][] [][][][][] [][][][][] [][][][][]
+                start = DateTime.Now.Ticks;
+                for (int x = 0; x < 10000; x++)
+                {
+                    for (int y = 0; y < 10000; y++)
+                        arr[x, y] = 1;
+                }
+                end = DateTime.Now.Ticks;
+                Console.WriteLine($"걸린 시간 틱 : {end - start}"); // 4881071
+
+                // [0][5]...[][][] [1][6][][][] [2][7][][][] [3][8][][][] [4][9][][][]
+                start = DateTime.Now.Ticks;
+                for (int x = 0; x < 10000; x++)
+                {
+                    for (int y = 0; y < 10000; y++)
+                        arr[y, x] = 1;
+                }
+                end = DateTime.Now.Ticks;
+                Console.WriteLine($"걸린 시간 틱 : {end - start}"); //  8215630
+
+                // 시간 차이가 나는 이유 
+                // 만약 배열이 5 * 5 였다면 실행순서는 반복문 위의 주석과 같다
+                // 캐시의 2번 철학에 따라 근접한 주소를 가진 메모리들을 저장해두는데
+                // 2번째 반목문을 저 멀리 주소의 메모리에 접근해서 캐시의 효용성을 보기가 힘들다. 그래서 느리다.
+            }
+        }
+
+        // 메모리 베리어
+        class MemoryBarrier
+        {
+            int x = 0;
+            int y = 0;
+            int r1 = 0;
+            int r2 = 0;
+
+            void Task1()
+            {
+                x = 1;
+                r1 = x;
+            }
+
+            void Task2()
+            {
+                y = 1;
+                r2 = y;
+            }
+
+            public void Main()
+            {
+                int count = 0;
+                while (true)
+                {
+                    count++;
+                    x = y = r1 = r2 = 0;
+                    Task task1 = new Task(Task1);
+                    Task task2 = new Task(Task2);
+                    task1.Start();
+                    task2.Start();
+
+                    Task.WaitAll(task1, task2);
+
+                    if (r1 == 0 && r2 == 0) break;
+                }
+
+                Console.WriteLine($"{count}번만에 탈출!!");
             }
         }
 
         static void Main(string[] args)
         {
-           
+            MemoryBarrier memoryBarrier = new MemoryBarrier();
+            memoryBarrier.Main();
         }
     }    
 }
