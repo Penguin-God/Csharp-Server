@@ -203,10 +203,60 @@ namespace ServerCore
             }
         }
 
+        class Study_Interlocked
+        {
+            // atomic = 원자성
+            // 원자는 물리적으로 쪼개지지 않는 것으로 원자성은 더 이상 쪼개지면 안되는 작업이 가지는 특성을 뜻함
+            // ex) 집행검 교환 
+            // 1. 소유자 인벤에서 템 삭제
+            // 2. 비소유자 인벤에 템 추가
+            // 근데 원자성이 보장되지 않고 1번만 성공하고 2번이 실패하면? 1억 삭제됨
+            // 아래에서도 0이 출력되지 않는 이유는 ++, --가
+            // 주소에 접근해서 값을 저장해서 임시 값을 만들고 임시값에 실제로 값을 더하고 다시 대입하는
+            // 총 3단계에 작업으로 진행되 원자성이 보장되지 않는데, 그걸 멀티 쓰레드 환경으로 뒤죽박죽 실행했기 때문
+            // 더 자세히 설명하자면
+            // Thread1이 먼저 실행됐다고 가정하고 각각 임시값 생성, 임시값 증가, 실제 값에 임시값 대입으로 3단계로 나눈면
+            // 3단계가 전부 끝나고 Thread2가 실행되야 하는데 Thread1 실행 중에 Thread2에서 값 대입하고 빼고 별 지랄을 다하기 때문에 값이 이상해짐
+            // 그리고 정말 다행히 원자성을 보장해주는 문법이 있음. 그러면 먼저 실행된 작업이 끝나기 전까지 기다리기 때문에 의도대로 잘 작동함
+            // Interlocked문법을 이용해 연산을 하면 기존 3단계가 한 번에 실행되고, 순서도 보장받음 
+            // 물론 number에 대한 작업이 끝날 때까지 다른 애들이 기다려야되서 느림. 기존에 캐시 이론이 쓰잘데기가 없어짐.
+
+            int number = 0;
+
+            void Thread1()
+            {
+                for (int i = 0; i < 100000; i++)
+                {
+                    // 원자성을 가지고 있는 ++을 실행
+                    Interlocked.Increment(ref number);
+                    //number++;
+                }
+            }
+
+            void Thread2()
+            {
+                for (int i = 0; i < 100000; i++)
+                {
+                    Interlocked.Decrement(ref number);
+                    //number--;
+                }
+            }
+
+            public void Main()
+            {
+                Task t1 = new Task(Thread1);
+                Task t2 = new Task(Thread2);
+                t1.Start();
+                t2.Start();
+                Task.WaitAll(t1, t2);
+                Console.WriteLine(number); // 0이 아닌 값이 나옴
+            }
+        }
+
         static void Main(string[] args)
         {
-            MemoryBarrier memoryBarrier = new MemoryBarrier();
-            memoryBarrier.Main();
+            Study_Interlocked interlocked = new Study_Interlocked();
+            interlocked.Main();
         }
     }    
 }
