@@ -207,6 +207,7 @@ namespace ServerCore
         {
             // atomic = 원자성
             // 원자는 물리적으로 쪼개지지 않는 것으로 원자성은 더 이상 쪼개지면 안되는 작업이 가지는 특성을 뜻함
+
             // ex) 집행검 교환 
             // 1. 소유자 인벤에서 템 삭제
             // 2. 비소유자 인벤에 템 추가
@@ -214,6 +215,7 @@ namespace ServerCore
             // 아래에서도 0이 출력되지 않는 이유는 ++, --가
             // 주소에 접근해서 값을 저장해서 임시 값을 만들고 임시값에 실제로 값을 더하고 다시 대입하는
             // 총 3단계에 작업으로 진행되 원자성이 보장되지 않는데, 그걸 멀티 쓰레드 환경으로 뒤죽박죽 실행했기 때문
+
             // 더 자세히 설명하자면
             // Thread1이 먼저 실행됐다고 가정하고 각각 임시값 생성, 임시값 증가, 실제 값에 임시값 대입으로 3단계로 나눈면
             // 3단계가 전부 끝나고 Thread2가 실행되야 하는데 Thread1 실행 중에 Thread2에서 값 대입하고 빼고 별 지랄을 다하기 때문에 값이 이상해짐
@@ -253,10 +255,58 @@ namespace ServerCore
             }
         }
 
+        class Study_Lock
+        {
+            object obj = new object();
+            int number = 0;
+
+            void Thread1()
+            {
+                for (int i = 0; i < 100000; i++)
+                {
+                    //Monitor.Enter(obj); // 작업 시작, 끝날때까지 관련되어있는 딴놈은 대기
+                    //number++;
+                    //// 이새기 안쓰면 영원히 잠겨있어서 더이상 number에 접근 못함(DeadLock)
+                    //// 그래서 일반적으로 try/chack 문에서 사용
+                    //// 근데 귀찮아서 lock라는게 있긴 함
+                    //Monitor.Exit(obj); // 작업 끝 대기 멈춰!!
+
+                    lock (obj)
+                    {
+                        number++;
+                    }
+                }
+            }
+
+            void Thread2()
+            {
+                for (int i = 0; i < 100000; i++)
+                {
+                    lock (obj)
+                    {
+                        number--;
+                    }
+                    //Monitor.Enter(obj);
+                    //number--;
+                    //Monitor.Exit(obj);
+                }
+            }
+
+            public void Main()
+            {
+                Task t1 = new Task(Thread1);
+                Task t2 = new Task(Thread2);
+                t1.Start();
+                t2.Start();
+                Task.WaitAll(t1, t2);
+                Console.WriteLine(number); // 0이 아닌 값이 나옴
+            }
+        }
+
         static void Main(string[] args)
         {
-            Study_Interlocked interlocked = new Study_Interlocked();
-            interlocked.Main();
+            Study_Lock locked = new Study_Lock();
+            locked.Main();
         }
     }    
 }
