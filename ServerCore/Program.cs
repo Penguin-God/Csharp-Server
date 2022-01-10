@@ -258,23 +258,51 @@ namespace ServerCore
         class Study_Lock
         {
             object obj = new object();
+            object user_obj = new object();
+            object session_obj = new object();
             int number = 0;
+
+            // 아래 4개의 함수가 서로 다른 object(자물쇠)로 lock을 걸어 동시에 접근을 막고 서로 꼬이게 되면서 DeadLock 걸림
+            // 해결 방법 : 그냥 크래쉬 내고 디버그 모드에서 콜스택 찾아갖고 열심히 고쳐봐
+            // 동시에 락을 걸어야 하는 문제기 때문에 시간차로 실행하면 되긴 함. 근데 실제 서버 열고 유저 몰리면? 펑펑 터짐. 그러니 구조를 잘 만들자
+            // 고유 id 같은걸 부여해서 디버그 때 추적을 편하게 만들어 놓기도 함
+            void TestSession()
+            {
+                lock (session_obj)
+                {
+                    // 코드
+                }
+            }
+
+            void TestUser()
+            {
+                lock (user_obj)
+                {
+                    // 코드
+                }
+            }
+
+            void Test_1()
+            {
+                lock (session_obj)
+                {
+                    TestUser();
+                }
+            }
+
+            void Test_2()
+            {
+                lock (user_obj)
+                {
+                    TestSession();
+                }
+            }
 
             void Thread1()
             {
                 for (int i = 0; i < 100000; i++)
                 {
-                    //Monitor.Enter(obj); // 작업 시작, 끝날때까지 관련되어있는 딴놈은 대기
-                    //number++;
-                    //// 이새기 안쓰면 영원히 잠겨있어서 더이상 number에 접근 못함(DeadLock)
-                    //// 그래서 일반적으로 try/chack 문에서 사용
-                    //// 근데 귀찮아서 lock라는게 있긴 함
-                    //Monitor.Exit(obj); // 작업 끝 대기 멈춰!!
-
-                    lock (obj)
-                    {
-                        number++;
-                    }
+                    Test_1();
                 }
             }
 
@@ -282,10 +310,11 @@ namespace ServerCore
             {
                 for (int i = 0; i < 100000; i++)
                 {
-                    lock (obj)
-                    {
-                        number--;
-                    }
+                    Test_2();
+                    //lock (obj)
+                    //{
+                    //    number--;
+                    //}
                     //Monitor.Enter(obj);
                     //number--;
                     //Monitor.Exit(obj);
@@ -297,6 +326,7 @@ namespace ServerCore
                 Task t1 = new Task(Thread1);
                 Task t2 = new Task(Thread2);
                 t1.Start();
+                Thread.Sleep(100); // 임시방편 동시에 일어나면 DeadLock
                 t2.Start();
                 Task.WaitAll(t1, t2);
                 Console.WriteLine(number); // 0이 아닌 값이 나옴
