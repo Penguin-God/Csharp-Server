@@ -333,10 +333,73 @@ namespace ServerCore
             }
         }
 
+        class SpinLock
+        {
+            volatile int isLocked = 0;
+            void Acquire()
+            {
+                while (true)
+                {
+                    // isLocked를 1로 바꿈 그리고 바꾸기 전에 값을 return함
+                    //int _original = Interlocked.Exchange(ref isLocked, 1);
+                    // 만약 _original이 1이라면 다른 쓰레드에서 접근해서 작업중이기 때문에 다음 루프로 넘김
+                    // 저기서 뱉는 _original은 멀티 쓰레드에서 개나소나 접근하는 값이 아니라 싱글 쓰레드에서 돌아가기 때문에 비교문에 사용해도 됨
+                    // 싱글 쓰레드라면 값을 바꾸고 대입하는게 서로 다른 작업이겠지만 Exchange는 원자성을 지키며 두 작업을 한번에 다함
+                    //if (_original == 0) break;
+
+                    // 근데 놀랍게도 비교도 자체적으로 해주는게 있음 비교도 해주니까 당연히 더 안전함
+                    int _expected = 0; // 예상한 값
+                    int _desired = 1; // 바뀌기를 원하는 값
+                    // isLocked과 _expected가 같으면 _desired 을 isLocked에 넣어줌, 그리고 원본값을 리턴함
+                    if(Interlocked.CompareExchange(ref isLocked, _desired, _expected) == _expected) break;
+                }
+            }
+
+            void Release()
+            {
+                isLocked = 0;
+            }
+
+            // 0이 안나오는 이유
+            // 스핀이 해제될때까지 대기 후 주도권을 가져오는데 멀티 쓰레드라서 bool변수는 하나지만 접근은 여러 곳에서 해댐
+            // 그러다가 거의 동시에 접근해서 주도권을 같이 가져옴 => 폭망
+            // 해결방벙 : 주도권을 가져올때 다른곳에서 접근했는지 확인 후 아닐때만 가져옴
+            int number = 0;
+            void Thread1()
+            {
+                for (int i = 0; i < 10000; i++)
+                {
+                    Acquire();
+                    number++;
+                    Release();
+                }
+            }
+
+            void Thread2()
+            {
+                for (int i = 0; i < 10000; i++)
+                {
+                    Acquire();
+                    number--;
+                    Release();
+                }
+            }
+
+            public void Main()
+            {
+                Task t1 = new Task(Thread1);
+                Task t2 = new Task(Thread2);
+                t1.Start();
+                t2.Start();
+                Task.WaitAll(t1, t2);
+                Console.WriteLine(number);
+            }
+        }
+
         static void Main(string[] args)
         {
-            Study_Lock locked = new Study_Lock();
-            locked.Main();
+            SpinLock spinLock = new SpinLock();
+            spinLock.Main();
         }
     }    
 }
