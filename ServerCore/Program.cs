@@ -336,6 +336,7 @@ namespace ServerCore
         class SpinLock
         {
             volatile int isLocked = 0;
+            // Acquire : 얻다, 습득하다
             void Acquire()
             {
                 while (true)
@@ -352,9 +353,16 @@ namespace ServerCore
                     int _desired = 1; // 바뀌기를 원하는 값
                     // isLocked과 _expected가 같으면 _desired 을 isLocked에 넣어줌, 그리고 원본값을 리턴함
                     if(Interlocked.CompareExchange(ref isLocked, _desired, _expected) == _expected) break;
+
+                    // while무한반복문을 쓰면 프로그램이 터질 우려가 있어서 쉬기
+                    Thread.Sleep(1); // 1ms 휴식(unity에서 yield return null; 하고 비슷한 느낌)
+                    //Thread.Sleep(0); // 휴식이 아닌 다른 쓰레드로 작업을 양도 대신 자신보다 우선순위가 낮을 애들만
+                    //Thread.Yield(); // 다른 쓰레드로 무조건 양도
+                    // 다른 쓰레드에 작업을 양도하는 것은 꽤나 부하가 크다. 경우에 따라 그냥 무한 반복하는게 나을수도 있음
                 }
             }
 
+            // Release : 개봉하다, 공개하다, 출시하다
             void Release()
             {
                 isLocked = 0;
@@ -396,9 +404,68 @@ namespace ServerCore
             }
         }
 
+        class EventLock
+        {
+            // available : 사용 가능한
+            // 인자값으로 bool 타입을 받음 true는 열려있는 상태로 false는 닫혀 있는 상태로 생성
+            // 이름에 Auto가 있는 것처럼 문을 열 경우 알아서 닫히고 알아서 열림
+            // 특 : 커널 레벨까지 가서 신호를 주고 바꾸고 해서 준내 느림
+            AutoResetEvent avaialable = new AutoResetEvent(true);
+
+            //ManualResetEvent manualResetEvent = new ManualResetEvent(true);
+            // 입장 후 문 닫는 작업을 따로 해줘야 함. 원자적으로 실행되지 않아서 지금처럼 왔다리 갔다리 할때는 에러가 생길 수 있음
+            // 패키지 다운로드, 레벨 로딩과 같은 무거운 작업 후 다른 쓰레드들에게 쫙 열어줄 때 사용
+
+            //Mutex mutex = new Mutex();
+            // 위에 클래스들은 bool로 잠금 여부만 따지는데 여기는 int로 2중, 3중 잠금도 할 수 있고 쓰레드ID도 가지고 있어서 비교도 가능함
+            // 하지만 역시 느림. 그리고 왠만하면 위에걸로 커버 되서 잘 안씀
+
+            void Acquire()
+            {
+                avaialable.WaitOne(); // 입장 시도(입장 후 알아서 닫힘)
+                // avaialable.Reset(); // 문을 닫는 행동 (위에서 원자적으로 자동 실행됨)
+            }
+
+            void Release()
+            {
+                avaialable.Set(); // 문 열어줌
+            }
+
+            int number = 0;
+            void Thread1()
+            {
+                for (int i = 0; i < 10000; i++)
+                {
+                    Acquire();
+                    number++;
+                    Release();
+                }
+            }
+
+            void Thread2()
+            {
+                for (int i = 0; i < 10000; i++)
+                {
+                    Acquire();
+                    number--;
+                    Release();
+                }
+            }
+
+            public void Main()
+            {
+                Task t1 = new Task(Thread1);
+                Task t2 = new Task(Thread2);
+                t1.Start();
+                t2.Start();
+                Task.WaitAll(t1, t2);
+                Console.WriteLine(number);
+            }
+        }
+
         static void Main(string[] args)
         {
-            SpinLock spinLock = new SpinLock();
+            EventLock spinLock = new EventLock();
             spinLock.Main();
         }
     }    
