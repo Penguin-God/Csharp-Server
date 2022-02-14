@@ -204,13 +204,14 @@ namespace ServerCore
             }
         }
 
-        
 
         static Lock myLock = new Lock();
         static int number = 0;
-        static void Main(string[] args)
+
+        class LockStudy
         {
-            Task t1 = new Task(() => 
+
+            Task t1 = new Task(() =>
             {
                 for (int i = 0; i < 100000; i++)
                 {
@@ -231,11 +232,64 @@ namespace ServerCore
                 }
             });
 
-            t1.Start();
-            t2.Start();
+            public void Main()
+            {
+                t1.Start();
+                t2.Start();
 
-            Task.WaitAll(t1, t2);
-            Console.WriteLine(number);
+                Task.WaitAll(t1, t2);
+                Console.WriteLine(number);
+            }
+        }
+
+
+        // 쓰레드 고유의 작업이나 ID를 만들거나 할 때 사용
+        class ThreadLocalStorage
+        {
+            // 멀티 쓰레드를 쓰는데 상호배타적으로 데이터를 지키는 Lock
+            // 만약 MMORPG에서 닥치는 대로 Lock을 걸어대면 어떻게 될까?
+            // 특정 Lock에 수백명이 접근했는데 안하느닌만 못한 그지같은 속도를 보여줌
+            // 그래서 모든 쓰레드가 공유하는 Heap공간헤서 각자 고유의 Local을 가져가서 작업하는 방법을 사용함
+
+            public string name = "";
+            public void WhoAmId()
+            {
+                name = $"My Id Is {Thread.CurrentThread.ManagedThreadId}";
+                Thread.Sleep(1000);
+                Console.WriteLine(name);
+            }
+
+            // 다른 쓰레드가 변수값을 바꾸든 말든 상관없이 자신의 쓰레드에서의 고유한 값을 가짐
+            // ThreadId가 null이면 인자로 넘긴 무명함수 실행
+            static ThreadLocal<string> ThreadId = new ThreadLocal<string>(() => { return $"My Id Is {Thread.CurrentThread.ManagedThreadId}"; });
+            public void WhoAmI()
+            {
+                // 이미 생성된 쓰레드가 있으면 굳이 새로 만들지 않고 재사용
+                if (ThreadId.IsValueCreated) Console.WriteLine(ThreadId.Value + "reppeat");
+                else Console.WriteLine(ThreadId.Value);
+
+                //Thread.Sleep(1000);
+                //Console.WriteLine(ThreadId.Value);
+            }
+
+            public void Main()
+            {
+                ThreadPool.SetMinThreads(1, 1);
+                ThreadPool.SetMaxThreads(3, 3);
+                // ()안에 들어간 함수를 병렬 실행, 그냥 string으로 하면 중간에 Sleep이 있으므로 마지막에 바꾼 쓰레드의 ID만 출력됨
+                // ThreadLocal을 쓰면? 다른 쓰레드가 바꿔대는 건 의미 없으니까 다 다르게 출력됨
+                Console.WriteLine("is string");
+                Parallel.Invoke(WhoAmId, WhoAmId, WhoAmId, WhoAmId, WhoAmId, WhoAmId);
+
+                Console.WriteLine("is Local");
+                Parallel.Invoke(WhoAmI, WhoAmI, WhoAmI, WhoAmI, WhoAmI, WhoAmI);
+            }
+        }
+
+        static void Main(string[] args)
+        {
+            ThreadLocalStorage tls = new ThreadLocalStorage();
+            tls.Main();
         }
     }    
 }
