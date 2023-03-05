@@ -25,11 +25,11 @@ namespace ServerCore
             try
             {
                 // 문지기 교육
-                listenSocket.Bind(endPoint);
+                //listenSocket.Bind(endPoint);
 
                 // 영업 시작
                 // backlog : 최대 대기 수
-                listenSocket.Listen(10);
+                //listenSocket.Listen(10);
 
                 while (true)
                 {
