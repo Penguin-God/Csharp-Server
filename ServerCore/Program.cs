@@ -15,6 +15,7 @@ namespace ServerCore
             InitListener();
             Console.WriteLine("Listening....");
 
+<<<<<<< HEAD
             Console.ReadKey();
         }
 
@@ -38,6 +39,16 @@ namespace ServerCore
             }
         }
 
+=======
+            while (true)
+            {
+
+            }
+
+            Console.ReadKey();
+        }
+
+>>>>>>> b6f9585fd76c5cdecbd56c9aa15e461c911ed620
         static Listener InitListener()
         {
             // DNS( Domain Name System) 사용
@@ -50,6 +61,33 @@ namespace ServerCore
             Listener listener = new Listener();
             listener.Init(endPoint, OnAccept);
             return listener;
+<<<<<<< HEAD
+=======
+        }
+
+        static void OnAccept(Socket clientSocket)
+        {
+            try
+            {
+                // 받는다. 클라이언트한테
+                byte[] recvBuffer = new byte[1024];
+                int recvByte = clientSocket.Receive(recvBuffer);
+                string recvMessage = Encoding.UTF8.GetString(recvBuffer, 0, recvByte);
+                Console.WriteLine($"from client message : {recvMessage}");
+
+                // 보낸다. 클라이언트한테
+                byte[] sendBuffer = Encoding.UTF8.GetBytes("Hello Client");
+                clientSocket.Send(sendBuffer);
+
+                // 볼 일 다 봤으니 쫒아낸다
+                clientSocket.Shutdown(SocketShutdown.Both); // 안넣어도 상관은 없음
+                clientSocket.Close();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
+>>>>>>> b6f9585fd76c5cdecbd56c9aa15e461c911ed620
         }
     }
 }
