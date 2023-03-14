@@ -8,6 +8,35 @@ using System.Text;
 
 namespace ServerCore
 {
+    class GameSession : Session
+    {
+        public override void OnConnect(EndPoint endPoint)
+        {
+            // 보낸다. 클라이언트한테
+            byte[] sendBuffer = Encoding.UTF8.GetBytes("Hello Client");
+            Send(sendBuffer);
+
+            Thread.Sleep(1000);
+            DisConnect();
+        }
+
+        public override void OnDisconnect(EndPoint endPoint)
+        {
+            Console.WriteLine($"OnDisConnect : {endPoint}");
+        }
+
+        public override void OnReceive(ArraySegment<byte> buffer)
+        {
+            string recvMessage = Encoding.UTF8.GetString(buffer.Array, buffer.Offset, buffer.Count);
+            Console.WriteLine($"from client message : {recvMessage}");
+        }
+
+        public override void OnSend(int num)
+        {
+            Console.WriteLine($"바이트 크기는 {num}");
+        }
+    }
+
     class Program
     {
         static void Main(string[] args)
@@ -16,26 +45,6 @@ namespace ServerCore
             Console.WriteLine("Listening....");
 
             Console.ReadKey();
-        }
-
-        static void OnAccept(Socket clientSocket)
-        {
-            try
-            {
-                var session = new Session();
-                session.Start(clientSocket);
-
-                // 보낸다. 클라이언트한테
-                byte[] sendBuffer = Encoding.UTF8.GetBytes("Hello Client");
-                session.Send(sendBuffer);
-
-                Thread.Sleep(1000);
-                session.DisConnect();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e.ToString());
-            }
         }
 
         static Listener InitListener()
@@ -48,7 +57,7 @@ namespace ServerCore
             IPEndPoint endPoint = new IPEndPoint(ipAddress, 1234);
 
             Listener listener = new Listener();
-            listener.Init(endPoint, OnAccept);
+            listener.Init(endPoint, () => new GameSession());
             return listener;
         }
     }

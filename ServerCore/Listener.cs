@@ -8,13 +8,13 @@ namespace ServerCore
     class Listener
     {
         Socket _listenSocket;
-        Action<Socket> _onAccept;
+        Func<Session> _createSession;
 
-        public void Init(IPEndPoint endPoint, Action<Socket> onAccept)
+        public void Init(IPEndPoint endPoint, Func<Session> createSession)
         {
             // 문지기가 들 휴대폰 생성
             _listenSocket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-            _onAccept = onAccept;
+            _createSession = createSession;
             // 문지기 교육
             _listenSocket.Bind(endPoint);
 
@@ -39,7 +39,11 @@ namespace ServerCore
         void OnAcceptCompleted(object sender, SocketAsyncEventArgs acceptEvent)
         {
             if (acceptEvent.SocketError == SocketError.Success)
-                _onAccept?.Invoke(acceptEvent.AcceptSocket);
+            {
+                Session session = _createSession();
+                session.Start(acceptEvent.AcceptSocket);
+                session.OnConnect(acceptEvent.RemoteEndPoint);
+            }
             else
                 Console.WriteLine(acceptEvent.SocketError.ToString());
 
