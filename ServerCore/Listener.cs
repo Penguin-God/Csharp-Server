@@ -5,7 +5,7 @@ using System.Net.Sockets;
 
 namespace ServerCore
 {
-    class Listener
+    public class Listener
     {
         Socket _listenSocket;
         Func<Session> _createSession;
@@ -32,6 +32,7 @@ namespace ServerCore
             acceptEvent.AcceptSocket = null; // 새로운 소켓을 접속시키기 위해 기존 정보 제거
             bool isPending = _listenSocket.AcceptAsync(acceptEvent); // 이게 접속 매서드
 
+            // Pending : 보류 중인, 미결정의
             if (isPending == false) // 비동기로 시도했지만 딜레이 없이 바로 됐을 경우(오직 성능을 위한 코드. 없어도 동작은 함)
                 OnAcceptCompleted(null, acceptEvent);
         }

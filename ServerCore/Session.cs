@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace ServerCore
 {
-    abstract class Session
+    public abstract class Session
     {
         Socket _clientSocket;
         const int BUFFER_SIZE = 1024;
@@ -82,6 +82,7 @@ namespace ServerCore
         void RegisterRecive(SocketAsyncEventArgs reciveArgs)
         {
             reciveArgs.AcceptSocket = null;
+            if (_clientSocket == null) return;
             bool isPending = _clientSocket.ReceiveAsync(reciveArgs);
 
             if (isPending == false)
