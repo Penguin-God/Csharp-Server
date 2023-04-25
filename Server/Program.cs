@@ -6,17 +6,31 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text;
 using ServerCore;
+using System.Linq;
 
 namespace Server
 {
+    class Knight
+    {
+        public int hp;
+        public int damage;
+    }
+
     class GameSession : Session
     {
         public override void OnConnect(EndPoint endPoint)
         {
             Console.WriteLine($"OnConnect : {endPoint}");
             // 보낸다. 클라이언트한테
-            byte[] sendBuffer = Encoding.UTF8.GetBytes("Hello Client");
+
+            SendBfferHelper.Open(4096);
+            
+            var knight = new Knight() { hp = 100, damage = 10 };
+            byte[] buffer1 = BitConverter.GetBytes(knight.hp);
+            byte[] buffer2 = BitConverter.GetBytes(knight.damage);
+            var sendBuffer = SendBfferHelper.Close(buffer1.Concat(buffer2).Count());
             Send(sendBuffer);
+
 
             Thread.Sleep(1000);
             DisConnect();
@@ -27,10 +41,11 @@ namespace Server
             Console.WriteLine($"OnDisConnect : {endPoint}");
         }
 
-        public override void OnReceive(ArraySegment<byte> buffer)
+        public override int OnReceive(ArraySegment<byte> buffer)
         {
             string recvMessage = Encoding.UTF8.GetString(buffer.Array, buffer.Offset, buffer.Count);
             Console.WriteLine($"from client message : {recvMessage}");
+            return buffer.Count;
         }
 
         public override void OnSend(int num)

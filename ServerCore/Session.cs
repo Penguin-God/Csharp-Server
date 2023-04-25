@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace ServerCore
 {
@@ -13,6 +11,8 @@ namespace ServerCore
     {
         Socket _clientSocket;
         const int BUFFER_SIZE = 1024;
+        ReceiveBuffer _recvBuffer = new ReceiveBuffer(BUFFER_SIZE);
+
         public void Start(Socket clientSocket)
         {
             _clientSocket = clientSocket;
@@ -23,21 +23,20 @@ namespace ServerCore
         public abstract void OnConnect(EndPoint endPoint);
         public abstract void OnDisconnect(EndPoint endPoint);
         public abstract void OnSend(int num);
-        public abstract void OnReceive(ArraySegment<byte> buffer);
+        public abstract int OnReceive(ArraySegment<byte> buffer);
 
         void InitRecive()
         {
             var reciveArgs = new SocketAsyncEventArgs();
             reciveArgs.Completed += new EventHandler<SocketAsyncEventArgs>(OnRecive);
-            reciveArgs.SetBuffer(new byte[BUFFER_SIZE], 0, BUFFER_SIZE);
             RegisterRecive(reciveArgs);
         }
 
         SocketAsyncEventArgs _sendArgs = new SocketAsyncEventArgs();
-        List<byte[]> _sendMessages = new List<byte[]>(); // 0이 아니면 누군가가 send 대기중
+        List<ArraySegment<byte>> _sendMessages = new List<ArraySegment<byte>>(); // 0이 아니면 누군가가 send 대기중
         IList<ArraySegment<byte>> _butfferList = new List<ArraySegment<byte>>(); // 0이 아니라면 버퍼를 보내는 중
         object _sendLock = new object();
-        protected void Send(byte[] buffer)
+        protected void Send(ArraySegment<byte> buffer)
         {
             lock (_sendLock) 
             {
@@ -49,10 +48,7 @@ namespace ServerCore
 
         void RegisterSend()
         {
-            _butfferList = 
-                _sendMessages
-                .Select(x => new ArraySegment<byte>(x, 0, x.Length))
-                .ToList();
+            _butfferList = _sendMessages.ToList();
             _sendMessages.Clear();
             _sendArgs.BufferList = _butfferList;
 
@@ -81,6 +77,9 @@ namespace ServerCore
 
         void RegisterRecive(SocketAsyncEventArgs reciveArgs)
         {
+            _recvBuffer.Clear();
+            var segment = _recvBuffer.WriteSegment;
+            reciveArgs.SetBuffer(segment.Array, segment.Offset, segment.Count);
             reciveArgs.AcceptSocket = null;
             if (_clientSocket == null) return;
             bool isPending = _clientSocket.ReceiveAsync(reciveArgs);
@@ -95,7 +94,20 @@ namespace ServerCore
             {
                 if (reciveArgs.BytesTransferred > 0 && reciveArgs.SocketError == SocketError.Success)
                 {
-                    OnReceive(new ArraySegment<byte>(reciveArgs.Buffer, reciveArgs.Offset, reciveArgs.BytesTransferred));
+                    if(_recvBuffer.OnWrite(_sendArgs.BytesTransferred) == false)
+                    {
+                        DisConnect();
+                        return;
+                    }
+
+                    int processLen = OnReceive(new ArraySegment<byte>(reciveArgs.Buffer, reciveArgs.Offset, reciveArgs.BytesTransferred));
+                    
+                    if(_recvBuffer.OnRead(processLen) == false)
+                    {
+                        DisConnect();
+                        return;
+                    }
+
                     RegisterRecive(reciveArgs);
                 }
                 else

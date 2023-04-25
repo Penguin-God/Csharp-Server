@@ -19,7 +19,7 @@ namespace DummyClient
             for (int i = 0; i < 5; i++)
             {
                 byte[] sendBuffer = Encoding.UTF8.GetBytes($"Hello Server : {i}");
-                Send(sendBuffer);
+                Send(new ArraySegment<byte>(sendBuffer));
             }
         }
 
@@ -28,10 +28,11 @@ namespace DummyClient
             Console.WriteLine($"OnDisConnect : {endPoint}");
         }
 
-        public override void OnReceive(ArraySegment<byte> buffer)
+        public override int OnReceive(ArraySegment<byte> buffer)
         {
             string recvMessage = Encoding.UTF8.GetString(buffer.Array, buffer.Offset, buffer.Count);
             Console.WriteLine($"from server : {recvMessage}");
+            return buffer.Count;
         }
 
         public override void OnSend(int num)
