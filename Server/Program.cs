@@ -10,48 +10,6 @@ using System.Linq;
 
 namespace Server
 {
-    class Packet
-    {
-        public ushort Size;
-        public ushort Id;
-    }
-
-    class GameSession : PacketSession
-    {
-        public override void OnConnect(EndPoint endPoint)
-        {
-            Console.WriteLine($"OnConnect : {endPoint}");
-            
-            // 보낸다. 클라이언트한테
-            //SendBfferHelper.Open(4096);
-            //var packet = new Packet() { Size = 4, Id = 3 };
-            //byte[] buffer1 = BitConverter.GetBytes(packet.Size);
-            //byte[] buffer2 = BitConverter.GetBytes(packet .Id);
-            //var sendBuffer = SendBfferHelper.Close(buffer1.Concat(buffer2).Count());
-            //Send(sendBuffer);
-
-            Thread.Sleep(5000);
-            DisConnect();
-        }
-
-        public override void OnDisconnect(EndPoint endPoint)
-        {
-            Console.WriteLine($"OnDisConnect : {endPoint}");
-        }
-
-        public override void OnReceivePacket(ArraySegment<byte> buffer)
-        {
-            ushort packetSize = BitConverter.ToUInt16(buffer.Array, buffer.Offset);
-            ushort packetId = BitConverter.ToUInt16(buffer.Array, buffer.Offset + 2);
-            Console.WriteLine($"size : {packetSize}, Id : {packetId}");
-        }
-
-        public override void OnSend(int num)
-        {
-            Console.WriteLine($"바이트 크기는 {num}");
-        }
-    }
-
     class Program
     {
         static void Main(string[] args)
@@ -72,7 +30,7 @@ namespace Server
             IPEndPoint endPoint = new IPEndPoint(ipAddress, 1234);
 
             Listener listener = new Listener();
-            listener.Init(endPoint, () => new GameSession());
+            listener.Init(endPoint, () => new ClientSession());
             return listener;
         }
     }

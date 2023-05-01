@@ -1,57 +1,11 @@
 ﻿using ServerCore;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Sockets;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace DummyClient
 {
-    class Packet
-    {
-        public ushort Size;
-        public ushort Id;
-    }
-
-    class GameSession : Session
-    {
-        public override void OnConnect(EndPoint endPoint)
-        {
-            Console.WriteLine($"OnConnect : {endPoint}");
-            
-            var packet = new Packet() { Size = 4, Id = 3 };
-            var s = SendBfferHelper.Open(4096);
-            // 구조체 안에는 배열이 들어있었네 ㅋㅋ
-            byte[] buffer1 = BitConverter.GetBytes(packet.Size);
-            byte[] buffer2 = BitConverter.GetBytes(packet.Id);
-            Array.Copy(buffer1, 0, s.Array, s.Offset, buffer1.Length);
-            Array.Copy(buffer2, 0, s.Array, s.Offset, buffer2.Length);
-            var sendBuffer = SendBfferHelper.Close(packet.Size);
-
-            Send(sendBuffer);
-        }
-
-        public override void OnDisconnect(EndPoint endPoint)
-        {
-            Console.WriteLine($"OnDisConnect : {endPoint}");
-        }
-
-        public override int OnReceive(ArraySegment<byte> buffer)
-        {
-            string recvMessage = Encoding.UTF8.GetString(buffer.Array, buffer.Offset, buffer.Count);
-            Console.WriteLine($"from server : {recvMessage}");
-            return buffer.Count;
-        }
-
-        public override void OnSend(int num)
-        {
-            Console.WriteLine($"바이트 크기는 {num}");
-        }
-    }
-
     class Program
     {
         static void Main(string[] args)
@@ -64,7 +18,7 @@ namespace DummyClient
             IPEndPoint endPoint = new IPEndPoint(ipAddress, 1234);
 
             Connector connector = new Connector();
-            connector.Connect(endPoint, () => new GameSession());
+            connector.Connect(endPoint, () => new ServerSession());
 
             while (true)
             {
