@@ -10,17 +10,28 @@ using System.Threading.Tasks;
 
 namespace DummyClient
 {
+    class Packet
+    {
+        public ushort Size;
+        public ushort Id;
+    }
+
     class GameSession : Session
     {
         public override void OnConnect(EndPoint endPoint)
         {
             Console.WriteLine($"OnConnect : {endPoint}");
-            // 보낸다. 서버한테
-            for (int i = 0; i < 5; i++)
-            {
-                byte[] sendBuffer = Encoding.UTF8.GetBytes($"Hello Server : {i}");
-                Send(new ArraySegment<byte>(sendBuffer));
-            }
+            
+            var packet = new Packet() { Size = 4, Id = 3 };
+            var s = SendBfferHelper.Open(4096);
+            // 구조체 안에는 배열이 들어있었네 ㅋㅋ
+            byte[] buffer1 = BitConverter.GetBytes(packet.Size);
+            byte[] buffer2 = BitConverter.GetBytes(packet.Id);
+            Array.Copy(buffer1, 0, s.Array, s.Offset, buffer1.Length);
+            Array.Copy(buffer2, 0, s.Array, s.Offset, buffer2.Length);
+            var sendBuffer = SendBfferHelper.Close(packet.Size);
+
+            Send(sendBuffer);
         }
 
         public override void OnDisconnect(EndPoint endPoint)

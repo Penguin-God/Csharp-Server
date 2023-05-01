@@ -7,6 +7,30 @@ using System.Threading;
 
 namespace ServerCore
 {
+    public abstract class PacketSession : Session
+    {
+        // sealed : 상속받은 얘들이 추가로 override하는 것을 막음. 멋지게 말하면 '봉인'
+        public sealed override int OnReceive(ArraySegment<byte> buffer)
+        {
+            int processLen = 0;
+            while (true)
+            {
+                ushort dataSize = BitConverter.ToUInt16(buffer.Array, buffer.Offset);
+                // 패킷이 완전한지 확인
+                if (IsSuccessfulPacket(buffer, dataSize) == false) break;
+                OnReceivePacket(new ArraySegment<byte>(buffer.Array, buffer.Offset, dataSize));
+                processLen += dataSize;
+                buffer = new ArraySegment<byte>(buffer.Array, buffer.Offset + dataSize, buffer.Count - dataSize);
+            }
+            return processLen;
+        }
+
+        readonly int HEADER_SIZE = 2;
+        bool IsSuccessfulPacket(ArraySegment<byte> buffer, int dataSize) => buffer.Count >= HEADER_SIZE && buffer.Count >= dataSize;
+
+        public abstract void OnReceivePacket(ArraySegment<byte> buffer);
+    }
+
     public abstract class Session
     {
         Socket _clientSocket;

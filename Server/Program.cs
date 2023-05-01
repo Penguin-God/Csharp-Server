@@ -10,29 +10,27 @@ using System.Linq;
 
 namespace Server
 {
-    class Knight
+    class Packet
     {
-        public int hp;
-        public int damage;
+        public ushort Size;
+        public ushort Id;
     }
 
-    class GameSession : Session
+    class GameSession : PacketSession
     {
         public override void OnConnect(EndPoint endPoint)
         {
             Console.WriteLine($"OnConnect : {endPoint}");
-            // 보낸다. 클라이언트한테
-
-            SendBfferHelper.Open(4096);
             
-            var knight = new Knight() { hp = 100, damage = 10 };
-            byte[] buffer1 = BitConverter.GetBytes(knight.hp);
-            byte[] buffer2 = BitConverter.GetBytes(knight.damage);
-            var sendBuffer = SendBfferHelper.Close(buffer1.Concat(buffer2).Count());
-            Send(sendBuffer);
+            // 보낸다. 클라이언트한테
+            //SendBfferHelper.Open(4096);
+            //var packet = new Packet() { Size = 4, Id = 3 };
+            //byte[] buffer1 = BitConverter.GetBytes(packet.Size);
+            //byte[] buffer2 = BitConverter.GetBytes(packet .Id);
+            //var sendBuffer = SendBfferHelper.Close(buffer1.Concat(buffer2).Count());
+            //Send(sendBuffer);
 
-
-            Thread.Sleep(1000);
+            Thread.Sleep(5000);
             DisConnect();
         }
 
@@ -41,11 +39,11 @@ namespace Server
             Console.WriteLine($"OnDisConnect : {endPoint}");
         }
 
-        public override int OnReceive(ArraySegment<byte> buffer)
+        public override void OnReceivePacket(ArraySegment<byte> buffer)
         {
-            string recvMessage = Encoding.UTF8.GetString(buffer.Array, buffer.Offset, buffer.Count);
-            Console.WriteLine($"from client message : {recvMessage}");
-            return buffer.Count;
+            ushort packetSize = BitConverter.ToUInt16(buffer.Array, buffer.Offset);
+            ushort packetId = BitConverter.ToUInt16(buffer.Array, buffer.Offset + 2);
+            Console.WriteLine($"size : {packetSize}, Id : {packetId}");
         }
 
         public override void OnSend(int num)
