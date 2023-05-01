@@ -51,7 +51,6 @@ namespace ServerCore
             _butfferList = _sendMessages.ToList();
             _sendMessages.Clear();
             _sendArgs.BufferList = _butfferList;
-
             bool isPending = _clientSocket.SendAsync(_sendArgs);
 
             if (isPending == false)
@@ -81,7 +80,7 @@ namespace ServerCore
             var segment = _recvBuffer.WriteSegment;
             reciveArgs.SetBuffer(segment.Array, segment.Offset, segment.Count);
             reciveArgs.AcceptSocket = null;
-            if (_clientSocket == null) return;
+            if (_clientSocket == null || _clientSocket.Connected == false) return;
             bool isPending = _clientSocket.ReceiveAsync(reciveArgs);
 
             if (isPending == false)
