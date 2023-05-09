@@ -1,6 +1,7 @@
 ﻿using ServerCore;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Net;
 using System.Text;
 
@@ -41,17 +42,30 @@ namespace DummyClient
                 count += sizeof(long);
 
                 ushort nameLen = (ushort)Encoding.Unicode.GetByteCount(Name);
-                Array.Copy(playerId, 0, s.Array, s.Offset + count, nameLen);
+                Array.Copy(BitConverter.GetBytes(nameLen), 0, s.Array, s.Offset + count, 2);
+                count += sizeof(ushort);
+
+                Array.Copy(Encoding.Unicode.GetBytes(this.Name), 0, s.Array, s.Offset + count, nameLen);
                 count += nameLen;
 
+                // 마지막에는 패킷 크기 넣음
                 byte[] size = BitConverter.GetBytes(count);
                 Array.Copy(size, 0, s.Array, s.Offset, 2);
+
                 return SendBfferHelper.Close(count);
             }
 
             public override void Read(ArraySegment<byte> s)
             {
+                ushort readIndex = 0;
+                readIndex += sizeof(ushort);
+                readIndex += sizeof(ushort);
                 PlayerId = BitConverter.ToInt64(s.Array, s.Offset + 4);
+                readIndex += sizeof(long);
+
+                ushort nameLen = BitConverter.ToUInt16(s.Array, readIndex);
+                readIndex += sizeof(ushort);
+                Name = Encoding.Unicode.GetString(new ArraySegment<byte>(s.Array, readIndex, nameLen).Array);
             }
         }
 
@@ -65,7 +79,7 @@ namespace DummyClient
         {
             Console.WriteLine($"OnConnect : {endPoint}");
 
-            PlayerInfoRequest packet = new PlayerInfoRequest() { PlayerId = 1001 };
+            PlayerInfoRequest packet = new PlayerInfoRequest() { PlayerId = 1001, Name = "PenguinGod" };
             Send(packet.Write());
         }
 

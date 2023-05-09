@@ -1,7 +1,9 @@
 ﻿using ServerCore;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Text;
 using System.Threading;
 
 namespace Server
@@ -18,6 +20,7 @@ namespace Server
     class PlayerInfoRequest : Packet
     {
         public long PlayerId;
+        public string Name;
 
         public PlayerInfoRequest()
         {
@@ -31,20 +34,34 @@ namespace Server
             byte[] packetId = BitConverter.GetBytes(base.PacketId);
             byte[] playerId = BitConverter.GetBytes(PlayerId);
             int count = 0;
-            count += 2;
+            count += sizeof(ushort);
             Array.Copy(packetId, 0, s.Array, s.Offset + count, 2);
-            count += 2;
+            count += sizeof(ushort);
             Array.Copy(playerId, 0, s.Array, s.Offset + count, 8);
-            count += 8;
+            count += sizeof(long);
 
+            ushort nameLen = (ushort)Encoding.Unicode.GetByteCount(Name);
+            Array.Copy(Encoding.Unicode.GetBytes(this.Name), 0, s.Array, s.Offset + count, nameLen);
+            count += nameLen;
+            // 마지막에는 패킷 크기 넣음
             byte[] size = BitConverter.GetBytes(count);
             Array.Copy(size, 0, s.Array, s.Offset, 2);
+
             return SendBfferHelper.Close(count);
         }
 
+
         public override void Read(ArraySegment<byte> s)
         {
+            ushort readIndex = 0;
+            readIndex += sizeof(ushort);
+            readIndex += sizeof(ushort);
             PlayerId = BitConverter.ToInt64(s.Array, s.Offset + 4);
+            readIndex += sizeof(long);
+
+            ushort nameLen = BitConverter.ToUInt16(s.Array, readIndex);
+            readIndex += sizeof(ushort);
+            Name = Encoding.Unicode.GetString(s.Array.Skip(readIndex).Take(nameLen).ToArray());
         }
     }
 
@@ -89,7 +106,7 @@ namespace Server
                 case PacketType.PlayerInfoRequest:
                     var playerInfo = new PlayerInfoRequest();
                     playerInfo.Read(buffer);
-                    Console.WriteLine($"아이디 : {playerInfo.PlayerId}");
+                    Console.WriteLine($"아이디 : {playerInfo.PlayerId}, 닉네임 : {playerInfo.Name}");
                     break;
                 case PacketType.PlayerInfoResult:
                     break;
